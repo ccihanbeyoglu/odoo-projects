@@ -11,7 +11,7 @@
         <field name="name">Approver</field>
         <field name="sequence">10</field>
         <field name="privilege_id" ref="res_groups_privilege_so_approval"/>
-        <field name="implied_ids" eval="[(4, ref('sales_team.group_sale_salesman'))]"/>
+        <field name="implied_ids" eval="[(4, ref('sales_team.group_sale_salesman_all_leads'))]"/>
         <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
     </record>
 </odoo>
