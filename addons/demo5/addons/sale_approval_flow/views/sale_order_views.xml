@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_order_form_approval" model="ir.ui.view">
+        <field name="name">sale.order.form.approval</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@id='action_confirm']" position="before">
+                <field name="needs_approval" invisible="1"/>
+                <button name="action_approve" type="object" string="Approve" class="btn-primary"
+                        groups="sale_approval_flow.group_so_approver"
+                        invisible="state not in ('draft', 'sent') or not needs_approval or is_approved"/>
+                <button name="action_revoke_approval" type="object" string="Revoke Approval"
+                        groups="sale_approval_flow.group_so_approver"
+                        invisible="state not in ('draft', 'sent') or not is_approved"/>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="Approval" name="approval">
+                    <group>
+                        <group>
+                            <field name="is_approved"/>
+                            <field name="approved_by"/>
+                            <field name="approved_date"/>
+                            <field name="approved_amount"/>
+                        </group>
+                        <group>
+                            <field name="special_instructions" placeholder="Printed on the quotation and order PDF"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

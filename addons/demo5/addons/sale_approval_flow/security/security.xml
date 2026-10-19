@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_groups_privilege_so_approval" model="res.groups.privilege">
+        <field name="name">Sales Order Approval</field>
+        <field name="sequence">6</field>
+        <field name="category_id" ref="base.module_category_sales_sales"/>
+    </record>
+
+    <!-- The administrator is an approver after installation. -->
+    <record id="group_so_approver" model="res.groups">
+        <field name="name">Approver</field>
+        <field name="sequence">10</field>
+        <field name="privilege_id" ref="res_groups_privilege_so_approval"/>
+        <field name="implied_ids" eval="[(4, ref('sales_team.group_sale_salesman'))]"/>
+        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+    </record>
+</odoo>

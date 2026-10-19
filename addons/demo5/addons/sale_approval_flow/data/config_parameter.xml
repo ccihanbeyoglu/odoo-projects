@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Orders above this amount (in the company currency) need approval.
+         0 switches the approval requirement off. -->
+    <record id="param_approval_threshold" model="ir.config_parameter">
+        <field name="key">sale_approval_flow.threshold</field>
+        <field name="value">5000</field>
+    </record>
+</odoo>

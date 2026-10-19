@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_saleorder_approval" inherit_id="sale.report_saleorder_document">
+        <xpath expr="//div[hasclass('page')]" position="inside">
+            <div t-if="doc.special_instructions" class="mt-4" name="special_instructions">
+                <strong>Special instructions</strong>
+                <p t-field="doc.special_instructions"/>
+            </div>
+            <div t-if="doc.is_approved" class="mt-2" name="approval_stamp">
+                <span>Approved by <t t-out="doc.approved_by.name"/> on
+                    <t t-out="doc.approved_date" t-options="{'widget': 'datetime'}"/></span>
+            </div>
+        </xpath>
+    </template>
+</odoo>
