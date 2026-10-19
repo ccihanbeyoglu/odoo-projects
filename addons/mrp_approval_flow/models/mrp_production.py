@@ -3,6 +3,7 @@ from odoo.exceptions import AccessError, UserError
 
 APPROVER_GROUP = 'mrp_approval_flow.group_mo_approver'
 PROTECTED_FIELDS = ('approval_state', 'approved_by', 'approved_date')
+PROTECTED_DEFAULT_KEYS = tuple(f'default_{name}' for name in PROTECTED_FIELDS)
 
 
 class MrpProduction(models.Model):
@@ -15,6 +16,7 @@ class MrpProduction(models.Model):
         ],
         string='Approval Status',
         default='pending',
+        readonly=True,
         copy=False,
         tracking=True,
     )
@@ -37,25 +39,27 @@ class MrpProduction(models.Model):
     )
 
     # ------------------------------------------------------------------
-    # Protection of the approval fields
+    # Protection of the approval fields. Only the approval actions write
+    # them, and they do it with sudo(). A normal user cannot approve by
+    # sending the values, a default_* context key, or any other context.
     # ------------------------------------------------------------------
     @api.model_create_multi
     def create(self, vals_list):
-        # Nobody can create an order that is already approved; the
-        # approval fields are only written through action_approve().
         if not self.env.su:
-            vals_list = [
-                {k: v for k, v in vals.items() if k not in PROTECTED_FIELDS}
-                for vals in vals_list
-            ]
+            if any(name in vals for vals in vals_list for name in PROTECTED_FIELDS):
+                raise AccessError(
+                    _("Approval fields can only be changed with the Approve or Revoke buttons.")
+                )
+            if any(key in self.env.context for key in PROTECTED_DEFAULT_KEYS):
+                clean = {
+                    key: value for key, value in self.env.context.items()
+                    if key not in PROTECTED_DEFAULT_KEYS
+                }
+                return super(MrpProduction, self.with_context(clean)).create(vals_list)
         return super().create(vals_list)
 
-    def write(self, vals):
-        if (
-            not self.env.su
-            and not self.env.context.get('mrp_approval_internal')
-            and any(field in vals for field in PROTECTED_FIELDS)
-        ):
+    def write(self, vals) -> bool:
+        if not self.env.su and any(name in vals for name in PROTECTED_FIELDS):
             raise AccessError(
                 _("Approval fields can only be changed with the Approve or Revoke buttons.")
             )
@@ -70,48 +74,51 @@ class MrpProduction(models.Model):
                 _("Only users in the MO Approval / Approver group can do this.")
             )
 
-    def action_approve(self):
+    def action_approve(self) -> bool:
         self._check_is_approver()
-        finished = self.filtered(lambda mo: mo.state in ('done', 'cancel'))
+        to_approve = self.filtered(lambda mo: mo.approval_state != 'approved')
+        finished = to_approve.filtered(lambda mo: mo.state in ('done', 'cancel'))
         if finished:
             raise UserError(
                 _("Finished or cancelled orders cannot be approved: %s",
                   ", ".join(finished.mapped('name')))
             )
-        to_approve = self.filtered(lambda mo: mo.approval_state != 'approved')
-        to_approve.with_context(mrp_approval_internal=True).write({
+        to_approve.sudo().write({
             'approval_state': 'approved',
             'approved_by': self.env.user.id,
             'approved_date': fields.Datetime.now(),
         })
-        self.env['mrp.approval.log'].create([
-            {'production_id': mo.id, 'action': 'approved'} for mo in to_approve
+        self.env['mrp.approval.log'].sudo().create([
+            {'production_id': mo.id, 'user_id': self.env.user.id, 'action': 'approved'}
+            for mo in to_approve
         ])
         return True
 
-    def action_revoke_approval(self):
+    def action_revoke_approval(self) -> bool:
         self._check_is_approver()
-        started = self.filtered(lambda mo: mo.state not in ('draft', 'confirmed'))
+        to_revoke = self.filtered(lambda mo: mo.approval_state == 'approved')
+        started = to_revoke.filtered(lambda mo: mo.state not in ('draft', 'confirmed'))
         if started:
             raise UserError(
                 _("Approval can only be revoked before production starts: %s",
                   ", ".join(started.mapped('name')))
             )
-        to_revoke = self.filtered(lambda mo: mo.approval_state == 'approved')
-        to_revoke.with_context(mrp_approval_internal=True).write({
+        to_revoke.sudo().write({
             'approval_state': 'pending',
             'approved_by': False,
             'approved_date': False,
         })
-        self.env['mrp.approval.log'].create([
-            {'production_id': mo.id, 'action': 'revoked'} for mo in to_revoke
+        self.env['mrp.approval.log'].sudo().create([
+            {'production_id': mo.id, 'user_id': self.env.user.id, 'action': 'revoked'}
+            for mo in to_revoke
         ])
         return True
 
     # ------------------------------------------------------------------
-    # The gate: production cannot start or finish without approval.
-    # Confirming is intentionally NOT blocked, because sales orders and
-    # replenishment rules confirm manufacturing orders automatically.
+    # The gate: the Start button, work order start and mark as done need
+    # approval. Confirming is intentionally NOT blocked, because sales
+    # orders and replenishment rules confirm manufacturing orders
+    # automatically. See the README for what is and is not covered.
     # ------------------------------------------------------------------
     def _check_approved(self) -> None:
         pending = self.filtered(lambda mo: mo.approval_state != 'approved')
