@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="mrp_production_form_view_approval" model="ir.ui.view">
+        <field name="name">mrp.production.form.approval</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <!-- Approve / Revoke buttons, visible only to approvers -->
+            <xpath expr="//header/button[@name='action_confirm']" position="before">
+                <button name="action_approve" string="Approve" type="object" class="btn-primary"
+                        groups="mrp_approval_flow.group_mo_approver"
+                        invisible="approval_state == 'approved' or state in ('done', 'cancel')"/>
+                <button name="action_revoke_approval" string="Revoke Approval" type="object"
+                        groups="mrp_approval_flow.group_mo_approver"
+                        invisible="approval_state != 'approved' or state not in ('draft', 'confirmed')"/>
+            </xpath>
+
+            <!-- Start stays hidden until the order is approved -->
+            <xpath expr="//header/button[@name='action_start']" position="attributes">
+                <attribute name="invisible">state != 'confirmed' or approval_state != 'approved'</attribute>
+            </xpath>
+
+            <!-- Approval status next to the normal status bar -->
+            <xpath expr="//header/field[@name='state']" position="after">
+                <field name="approval_state" widget="statusbar" statusbar_visible="pending,approved"/>
+            </xpath>
+
+            <!-- Approval details and log -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Approval" name="approval">
+                    <group>
+                        <field name="approval_state"/>
+                        <field name="approved_by"/>
+                        <field name="approved_date"/>
+                    </group>
+                    <field name="approval_log_ids">
+                        <list>
+                            <field name="date"/>
+                            <field name="user_id"/>
+                            <field name="action"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
